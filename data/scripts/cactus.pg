@@ -1,0 +1,24 @@
+reset
+set output 'cactus.pdf'
+set terminal pdf dashed size 6.5,4  font",24"
+set xtics font ",18"
+set ytics font ",18"
+set ylabel "Time (s)" offset 2
+set xlabel "Instances solved" offset 0,0.5
+set title ""
+set yrange [0:7200]
+set xrange [960:2000]
+set key at 1500,6900 font ",18"
+plot 'cactus.dat'\
+    index 1 title "sharpSAT-TW (1970)" with linespoints ls 2 lt rgb "#E69F00", \
+    '' index 3 title "GANAK-TW (1970)" with linespoints ls 4 lt rgb "#56B4E9", \
+    '' index 9 title "D4 (1880)" with linespoints ls 10 lt rgb "#F0E442", \
+    '' index 5 title "c2d-TW (1831)" with linespoints ls 6 lt rgb "#009E73", \
+    '' index 8 title "sharpSAT-Cen (1790)" with linespoints ls 9 lt rgb "#000000", \
+    '' index 4 title "c2d (1780)" with linespoints ls 5 lt rgb "#009E73", \
+    '' index 10 title "DPMC-LG (1724)" with linespoints ls 11 lt rgb "#D55E00", \
+    '' index 0 title "sharpSAT (1664)" with linespoints ls 1 lt rgb "#E69F00", \
+    '' index 7 title "miniC2D-TW (1648)" with linespoints ls 8 lt rgb "#CC79A7", \
+    '' index 2 title "GANAK (1623)" with linespoints ls 3 lt rgb "#56B4E9", \
+    '' index 11 title "DPMC-HTB (1609)" with linespoints ls 12 lt rgb "#D55E00", \
+    '' index 6 title "miniC2D (1583)" with linespoints ls 7 lt rgb "#CC79A7"

@@ -1,0 +1,14 @@
+reset
+set output 'hitsize_scatter.pdf'
+set terminal pdf dashed size 3.5,3.5  font",18"
+set xtics font ",14"
+set ytics font ",14"
+set xlabel "SharpSAT"
+set ylabel "SharpSAT-TW"
+set title ""
+set xrange [0:100]
+set yrange [0:100]
+set size square
+set key at 105,30 font ",16"
+set arrow from 0,0 to 100,100 nohead lc rgb "black"
+plot 'hitsize_scatter.dat' title "" pt 1 ps 1 lc rgb "#FF0000"

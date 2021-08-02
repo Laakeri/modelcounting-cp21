@@ -1,0 +1,257 @@
+New files:
+
+src/decomposition.cpp
+src/decomposition.h
+
+
+
+Diff src/instance.cpp:
+
+< bool Instance::deleteConflictClauses() {
+---
+> bool Instance::deleteConflictClauses(bool all) {
+247a248,250
+>   if (tmp_conflict_clauses.empty()) {
+>     return true;
+>   }
+260a264,267
+>   if (all) {
+>     cutoff = tmp_ratiosB.back();
+>   }
+> 
+381a389,484
+> vector<vector<int>> Instance::PrimalGraph() {
+>   const unsigned n = literals_.end_lit().var() - 1;
+>   // The graph. We use 1-indexing, so g[0] will be useless and g[1..n] will be used
+>   vector<vector<int>> g(n + 1);
+>   // Binary clause edges
+>   for(auto l = LiteralID(1, false); l != literals_.end_lit(); l.inc()) {
+>     for(auto it = literal(l).binary_links_.begin(); *it != SENTINEL_LIT; ++it) {
+>       if(it->var() < l.var()) {
+>         const unsigned a = it->var();
+>         const unsigned b = l.var();
+>         assert(1 <= a && a < b && b <= n);
+>         g[a].push_back(b);
+>         g[b].push_back(a);
+>       }
+>     }
+>   }
+>   // Long clause edges
+>   vector<unsigned> currentClause;
+>   for(vector<LiteralID>::const_iterator it = literal_pool_.begin(); it != literal_pool_.end(); ++it) {
+>     const LiteralID lit = *it;
+>     if(lit == SENTINEL_LIT)
+>       currentClause.clear();
+>     else {
+>       if(currentClause.size() > 0) {
+>         for(const unsigned v : currentClause) {
+>           const unsigned u = lit.var();
+>           assert(1 <= v && v <= n);
+>           assert(1 <= u && u <= n);
+>           assert(v != u);
+>           g[v].push_back(u);
+>           g[u].push_back(v);
+>         }
+>       }
+>       currentClause.push_back(lit.var());
+>     }
+>   }
+>   assert(g[0].empty());
+>   for (unsigned i = 1; i <= n; i++) {
+>     // Sort and deduplicate
+>     sort(g[i].begin(), g[i].end());
+>     g[i].erase(unique(g[i].begin(), g[i].end()), g[i].end());
+>   }
+>   return g;
+> }
+> 
+> void Instance::PrepareTWScore(int width, const vector<int>& ord, double weight, int weight_mode) {
+>   const int n = literals_.end_lit().var() - 1;
+>   assert(extra_score.empty());
+>   extra_score.resize(n+1);
+>   if (n <= 2) {
+>     return;
+>   }
+>   // We use 1-indexing, ignore index 0
+>   assert(ord.size() == extra_score.size());
+>   assert(ord[0] == 0);
+>   int max_ord = 0;
+>   for (int i = 1; i <= n; i++) {
+>     assert(ord[i] >= 1);
+>     max_ord = max(max_ord, ord[i]);
+>   }
+>   assert(max_ord >= 1);
+>   // Normalize
+>   for (int i = 1; i <= n; i++) {
+>     extra_score[i] = max_ord - ord[i];
+>     extra_score[i] /= (double)max_ord;
+>     assert(extra_score[i] > -0.01 && extra_score[i] < 1.01);
+>   }
+>   // Now scores are between 0..1
+>   double coef = 1;
+>   if (weight_mode == 1) {
+>     if (weight > 0) {
+>       double rt = (double)n/(double)width;
+>       if (rt > 40) {
+>         coef = 1e7;
+>       } else {
+>         coef = weight*exp(rt)/(double)n;
+>       }
+>     } else {
+>       coef = 1e7;
+>     }
+>   } else if (weight_mode == 2) {
+>     coef = weight;
+>   } else if (weight_mode == 3) {
+>     double rt = (double)n/(double)width;
+>     if (rt > 40) {
+>       coef = 1e7;
+>     } else {
+>       coef = weight*exp(rt);
+>     }
+>   }
+>   coef = min(coef, 1e7);
+>   cout << "COEF " << coef << endl;
+>   for (int i = 1; i <= n; i++) {
+>     extra_score[i] *= coef;
+>   }
+> }
+
+
+
+Diff src/instance.h:
+
+<   bool deleteConflictClauses();
+---
+>   bool deleteConflictClauses(bool all=false);
+205a206,210
+> 
+> protected:
+>   vector<float> extra_score;
+>   vector<vector<int>> PrimalGraph();
+>   void PrepareTWScore(int width, const vector<int>& ord, double weight, int weight_mode);
+
+
+
+Diff src/main.cpp:
+
+>     cout << endl;
+>     cout << "The following are new:" << endl;
+>     cout << "\t -tw    \t enable treewidth" << endl;
+>     cout << "\t -decot \t time limit for anytime tree decomposition" << endl;
+>     cout << "\t -decow \t how much treewidth is weighted in branching. If not specified, 10^7." << endl;
+>     cout << "\t -nofreq\t disable frequency scores in VSADS" << endl;
+>     cout << "\t -noact \t disable activity scores in VSADS" << endl;
+>     cout << "\t -noactinit\t init activity scores to 0 instead of freq" << endl;
+>     cout << "\t -nocdcl\t no CDCL" << endl;
+>     cout << "\t -wemod \t weight mode" << endl;
+32d41
+< 
+60a70,107
+>     } else if (strcmp(argv[i], "-nofreq") == 0) {
+>       assert(theSolver.config().vsads_freq == true);
+>       theSolver.config().vsads_freq = false;
+>     } else if (strcmp(argv[i], "-noact") == 0) {
+>       assert(theSolver.config().vsads_act == true);
+>       theSolver.config().vsads_act = false;
+>     } else if (strcmp(argv[i], "-noactinit") == 0) {
+>       assert(theSolver.config().vsads_act_init == true);
+>       theSolver.config().vsads_act_init = false;
+>     } else if (strcmp(argv[i], "-tw") == 0) {
+>       theSolver.config().treewidth = true;
+>     } else if (strcmp(argv[i], "-decot") == 0) {
+>       if (argc <= i + 1) {
+>         cout << " wrong parameters" << endl;
+>         return -1;
+>       }
+>       double decot = atof(argv[++i]);
+>       assert(decot >= 1 && decot <= 7200);
+>       theSolver.config().decomp_time = decot;
+>     } else if (strcmp(argv[i], "-decow") == 0) {
+>       if (argc <= i + 1) {
+>         cout << " wrong parameters" << endl;
+>         return -1;
+>       }
+>       double decow = atof(argv[++i]);
+>       assert(decow > 0.09);
+>       theSolver.config().decomp_weight = decow;
+>     } else if (strcmp(argv[i], "-nocdcl") == 0) {
+>       assert(theSolver.config().cdcl == true);
+>       theSolver.config().cdcl = false;
+>     } else if (strcmp(argv[i], "-wemod") == 0) {
+>       if (argc <= i + 1) {
+>         cout << " wrong parameters" << endl;
+>         return -1;
+>       }
+>       int wemod = atoi(argv[++i]);
+>       assert(wemod >= 1 && wemod <= 3);
+>       theSolver.config().weight_mode = wemod;
+
+
+
+Diff src/solver_config.h:
+
+>   // The following settings are treewidth mod
+>   bool treewidth = false;
+>   double decomp_time = -1;
+>   double decomp_weight = -1;
+>   int weight_mode = 1;
+>   // Added settings for experimenting with VSADS scores
+>   bool vsads_freq = true;
+>   bool vsads_act = true;
+>   bool vsads_act_init = true;
+>   // Otherwise delete learned clauses
+>   bool cdcl = true;
+
+
+
+Diff src/solver.cpp:
+
+> #include "decomposition.h"
+> 
+118,119c120,125
+< 		literal(l).activity_score_ = literal(l).binary_links_.size() - 1;
+< 		literal(l).activity_score_ += occurrence_lists_[l].size();
+---
+> 		if (config_.vsads_act_init) {
+> 			literal(l).activity_score_ = literal(l).binary_links_.size() - 1;
+> 			literal(l).activity_score_ += occurrence_lists_[l].size();
+> 		} else {
+> 			literal(l).activity_score_ = 0;
+> 		}
+153a160,165
+> 		if (config_.treewidth) {
+> 			auto graph = PrimalGraph();
+> 			auto tw = decomp::ComputeTreewidth(graph, config_.decomp_time);
+> 			PrepareTWScore(tw.first, tw.second, config_.decomp_weight, config_.weight_mode);
+> 		}
+> 
+297a310,313
+> 	}
+> 
+> 	if (config_.cdcl == false) {
+> 		deleteConflictClauses(true);
+
+
+
+Diff src/solver.h:
+
+< 		float score = comp_manager_.scoreOf(v);
+< 		score += 10.0 * literal(LiteralID(v, true)).activity_score_;
+< 		score += 10.0 * literal(LiteralID(v, false)).activity_score_;
+< //		score += (10*stack_.get_decision_level()) * literal(LiteralID(v, true)).activity_score_;
+< //		score += (10*stack_.get_decision_level()) * literal(LiteralID(v, false)).activity_score_;
+< 
+---
+> 		float score = 0;
+> 		if (config_.vsads_freq) {
+> 			score += comp_manager_.scoreOf(v);
+> 		}
+> 		if (config_.vsads_act) {
+> 			score += 10.0 * literal(LiteralID(v, true)).activity_score_;
+> 			score += 10.0 * literal(LiteralID(v, false)).activity_score_;
+> 		}
+> 		if (config_.treewidth) {
+> 			assert(v >= 0 && v < extra_score.size());
+> 			score += extra_score[v];
+> 		}
